@@ -26,13 +26,31 @@ Vec3 v[] = {
 };
 
 int f[][3] = {
-    {0, 1, 2}, {0, 2, 3},
-    {1, 5, 6}, {2, 6, 1},
-    {4, 5, 6}, {7, 6, 4},
-    {0, 4, 7}, {3, 7, 4},
-    {3, 2, 6}, {7, 6, 3},
-    {0, 1, 4}, {5, 1, 4}
+    // Передняя грань (z = -4)
+    {0, 1, 2},
+    {0, 2, 3},
+
+    // Правая грань (x = +1)
+    {1, 5, 6},
+    {1, 6, 2},
+
+    // Задняя грань (z = -2)
+    {5, 4, 7},
+    {5, 7, 6},
+
+    // Левая грань (x = -1)
+    {4, 0, 3},
+    {4, 3, 7},
+
+    // Верхняя грань (y = +1)
+    {3, 2, 6},
+    {3, 6, 7},
+
+    // Нижняя грань (y = -1)
+    {4, 5, 1},
+    {4, 1, 0}
 };
+
 
 void draw_line(Vec2 v1, Vec2 v2) {
     int dx = abs(v2.x - v1.x), sx = v1.x < v2.x ? 1 : -1;
@@ -78,6 +96,40 @@ Vec2 project_point(Vec3 v, Mat4 proj, int w, int h) {
 
     return (Vec2){sx, sy};
 }
+
+Vec3 triangle_normal(Vec3 a, Vec3 b, Vec3 c) {
+    Vec3 ab = vec3_sub(b, a);
+    Vec3 ac = vec3_sub(c, a);
+
+    Vec3 normal = vec3_cross(ab, ac);
+
+    float length = vec3_length(normal);
+
+    if (length == 0.0f)
+        return (Vec3){0.0f, 0.0f, 0.0f};
+
+    return (Vec3){normal.x / length, normal.y / length, normal.z / length};
+}
+
+// float angle_camera_and_normal(Vec3 camera_pos, Vec3 triangle_point, Vec3 normal) {
+//     Vec3 to_camera = vec3_sub(camera_pos, triangle_point);
+
+//     float length = vec3_length(to_camera);
+
+//     Vec3 dir = {0.0f, 0.0f, 0.0f};
+
+//     if (length != 0.0f) {
+//         dir.x = to_camera.x / length;
+//         dir.y = to_camera.y / length;
+//         dir.z = to_camera.z / length;
+//     }
+
+//     float cos_angle = vec3_dot(normal, dir);
+//     if (cos_angle > 1.0f) cos_angle = 1.0f;
+//     if (cos_angle < -1.0f) cos_angle = -1.0f;
+
+//     return acosf(cos_angle);
+// }
 
 Vec3 rotate_point(Vec3 v, float angleX, float angleY) {
 	float cosX = cos(angleX);
@@ -135,9 +187,15 @@ void E3DProcess(void) {
             Vec2 v1 = projected[t[1]];
             Vec2 v2 = projected[t[2]];
 
-            draw_line(v0, v1);
-            draw_line(v1, v2);
-            draw_line(v2, v0);
+            Vec3 normal = triangle_normal(rotated[t[0]], rotated[t[1]], rotated[t[2]]);
+            Vec3 to_camera = vec3_sub((Vec3){0.0f, 0.0f, 0.0f}, rotated[t[0]]);
+            float dot = vec3_dot(normal, to_camera);
+
+            if (dot < 0.0f) {
+                draw_line(v0, v1);
+                draw_line(v1, v2);
+                draw_line(v2, v0);
+            }
         }
 
         free(projected);
