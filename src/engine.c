@@ -9,48 +9,14 @@ static float distance = 10.0;
 float terminal_aspect_correction = 0.5f;
 static int screen_h = 0;
 static int screen_w = 0;
-static int v_count = 8;
-static int f_count = 12;
+static int v_size = 1;
+static int f_size = 1;
 static float angleX = 0;
 static float angleY = 0;
 
-Vec3 v[] = {
-    {-1, -1, -1 - 3},
-    {1, -1, -1 - 3},
-    {1, 1, -1 - 3},
-    {-1, 1, -1 - 3},
-    {-1, -1, 1 - 3},
-    {1, -1, 1 - 3},
-    {1, 1, 1 - 3},
-    {-1, 1, 1 - 3}
-};
+Vec3 *v = NULL;
 
-int f[][3] = {
-    // Передняя грань (z = -4)
-    {0, 1, 2},
-    {0, 2, 3},
-
-    // Правая грань (x = +1)
-    {1, 5, 6},
-    {1, 6, 2},
-
-    // Задняя грань (z = -2)
-    {5, 4, 7},
-    {5, 7, 6},
-
-    // Левая грань (x = -1)
-    {4, 0, 3},
-    {4, 3, 7},
-
-    // Верхняя грань (y = +1)
-    {3, 2, 6},
-    {3, 6, 7},
-
-    // Нижняя грань (y = -1)
-    {4, 5, 1},
-    {4, 1, 0}
-};
-
+int (*f)[3] = NULL;
 
 void draw_line(Vec2 v1, Vec2 v2) {
     int dx = abs(v2.x - v1.x), sx = v1.x < v2.x ? 1 : -1;
@@ -145,15 +111,124 @@ Vec3 rotate_point(Vec3 v, float angleX, float angleY) {
     return (Vec3){x2, y1, z2};
 }
 
-void E3DInit(void) {
+Vec3* E3DGetVertexes(void) {
+    return v;
+}
+
+int (*E3DGetFaces(void))[3] {
+    return f;
+}
+
+int E3DAddVertex(Vec3 vertex) {
+    v = realloc(v, v_size * sizeof(Vec3));
+    if (!v) {
+        fprintf(stderr, "Memory re-allocated failed\n");
+        return -1;
+    }
+
+    v[v_size - 1] = vertex;
+    v_size++;
+    return v_size - 2;
+}
+
+void E3DDelVertex(unsigned int v_id) {
+    for (int i = v_id; i < v_size - 1; i++) {
+        v[i] = v[i + 1];
+    }
+    v_size--;
+
+    v = realloc(v, v_size * sizeof(Vec3));
+    if (!v) {
+        fprintf(stderr, "Memory re-allocated failed\n");
+    }
+}
+
+int E3DAddFace(int face[3]) {
+    f = realloc(f, f_size * sizeof(int[3]));
+    if (!f) {
+        fprintf(stderr, "Memory re-allocated failed\n");
+        return -1;
+    }
+
+    f[f_size - 1][0] = face[0];
+    f[f_size - 1][1] = face[1];
+    f[f_size - 1][2] = face[2];
+    f_size++;
+    return f_size - 2;
+}
+
+void E3DDelFace(unsigned int f_id) {
+    for (int i = f_id; i < f_size - 1; i++) {
+        f[i][0] = f[i + 1][0];
+        f[i][1] = f[i + 1][1];
+        f[i][2] = f[i + 1][2];
+    }
+    f_size--;
+
+    f = realloc(f, f_size * sizeof(int[3]));
+    if (!f) {
+        fprintf(stderr, "Memory re-allocated failed\n");
+    }
+}
+
+int E3DAddBox(Vec3 pos, Vec3 size) {
+    int v0 = E3DAddVertex((Vec3){pos.x - (size.x / 2), pos.y - (size.y / 2), pos.z - (size.z / 2)});
+    int v1 = E3DAddVertex((Vec3){pos.x + (size.x / 2), pos.y - (size.y / 2), pos.z - (size.z / 2)});
+    int v2 = E3DAddVertex((Vec3){pos.x + (size.x / 2), pos.y + (size.y / 2), pos.z - (size.z / 2)});
+    int v3 = E3DAddVertex((Vec3){pos.x - (size.x / 2), pos.y + (size.y / 2), pos.z - (size.z / 2)});
+    int v4 = E3DAddVertex((Vec3){pos.x - (size.x / 2), pos.y - (size.y / 2), pos.z + (size.z / 2)});
+    int v5 = E3DAddVertex((Vec3){pos.x + (size.x / 2), pos.y - (size.y / 2), pos.z + (size.z / 2)});
+    int v6 = E3DAddVertex((Vec3){pos.x + (size.x / 2), pos.y + (size.y / 2), pos.z + (size.z / 2)});
+    int v7 = E3DAddVertex((Vec3){pos.x - (size.x / 2), pos.y + (size.y / 2), pos.z + (size.z / 2)});
+
+    E3DAddFace((int[3]){v0, v1, v2});
+    E3DAddFace((int[3]){v0, v2, v3});
+    E3DAddFace((int[3]){v1, v5, v6});
+    E3DAddFace((int[3]){v1, v6, v2});
+    E3DAddFace((int[3]){v5, v4, v7});
+    E3DAddFace((int[3]){v5, v7, v6});
+    E3DAddFace((int[3]){v4, v0, v3});
+    E3DAddFace((int[3]){v4, v3, v7});
+    E3DAddFace((int[3]){v3, v2, v6});
+    E3DAddFace((int[3]){v3, v6, v7});
+    E3DAddFace((int[3]){v4, v5, v1});
+    E3DAddFace((int[3]){v4, v1, v0});
+
+    return 1;
+}
+
+int E3DInit(void) {
 	initscr();
 	noecho();
 	curs_set(0);
 
 	getmaxyx(stdscr, screen_h, screen_w);
+
+    v = malloc(v_size + sizeof(Vec3));
+    if (!v) {
+        fprintf(stderr, "Memory allocated failed\n");
+        return 0;
+    }
+
+    f = malloc(f_size + sizeof(int[3]));
+    if (!f) {
+        fprintf(stderr, "Memory allocated failed\n");
+        return 0;
+    }
+
+    return 1;
 }
 
 void E3DEnd(void) {
+    if (v) {
+        free(v);
+        v = NULL;
+    }
+
+    if (f) {
+        free(f);
+        f = NULL;
+    }
 	endwin();
 }
 
@@ -161,27 +236,27 @@ void E3DProcess(void) {
     while (1) {
         clear();
 
-        Vec3 *rotated = malloc(v_count * sizeof(Vec3));
-        Vec2 *projected = malloc(v_count * sizeof(Vec2));
+        Vec3 *rotated = malloc(v_size * sizeof(Vec3));
+        Vec2 *projected = malloc(v_size * sizeof(Vec2));
         float aspect = ((float)screen_w / screen_h) * terminal_aspect_correction;
         Mat4 proj = perspective(90.0f, aspect, 0.1f, 100.0f);
 
         Vec3 center = {0, 0, -3};
 
         // Rotate around center
-        for (int i = 0; i < v_count; i++) {
+        for (int i = 0; i < v_size; i++) {
             Vec3 local = vec3_sub(v[i], center);
             Vec3 rotated_local = rotate_point(local, angleX, angleY);
             rotated[i] = vec3_add(rotated_local, center);
         }
 
         // Project
-        for (int i = 0; i < v_count; i++) {
+        for (int i = 0; i < v_size; i++) {
             projected[i] = project_point(rotated[i], proj, screen_w, screen_h);
         }
 
         // Draw faces
-        for (int i = 0; i < f_count; i++) {
+        for (int i = 0; i < f_size; i++) {
             int *t = f[i];
             Vec2 v0 = projected[t[0]];
             Vec2 v1 = projected[t[1]];
