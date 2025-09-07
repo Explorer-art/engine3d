@@ -2,12 +2,13 @@
 #define ENGINE_H
 
 #include "vector.h"
+#include "camera.h"
 
-int E3DInit(void);
+int E3DInit(Camera *cam);
 void E3DEnd(void);
 void E3DProcess(void);
 Vec3* E3DGetVertexes(void);
-int* E3DGetFaces(void);
+int (*E3DGetFaces(void))[3];
 int E3DAddVertex(Vec3 vertex);
 void E3DDelVertex(unsigned int v_id);
 int E3DAddFace(int face[3]);

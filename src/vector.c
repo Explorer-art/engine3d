@@ -13,6 +13,15 @@ float vec3_length(Vec3 v) {
 	return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 }
 
+Vec3 vec3_normalize(Vec3 v) {
+	float length = vec3_length(v);
+
+	if (length == 0)
+		return (Vec3){0.0f, 0.0f, 0.0f};
+
+	return (Vec3){v.x / length, v.y / length, v.z / length};
+}
+
 float vec3_dot(Vec3 a, Vec3 b) {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }

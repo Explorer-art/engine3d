@@ -2,17 +2,18 @@
 #include <math.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include "engine.h"
 #include "vector.h"
 #include "matrix.h"
 
-static float distance = 10.0;
 float terminal_aspect_correction = 0.5f;
 static int screen_h = 0;
 static int screen_w = 0;
-static int v_size = 1;
-static int f_size = 1;
+static int v_size = 0;
+static int f_size = 0;
 static float angleX = 0;
 static float angleY = 0;
+static Camera *camera = NULL;
 
 Vec3 *v = NULL;
 
@@ -44,9 +45,41 @@ Mat4 perspective(float fov_deg, float aspect, float near, float far) {
     return m;
 }
 
-Vec2 project_point(Vec3 v, Mat4 proj, int w, int h) {
+Mat4 look_at(Vec3 pos, Vec3 target, Vec3 up) {
+    Vec3 f = vec3_sub(target, pos);
+    f = vec3_normalize(f);  // Вектор взгляда (forward)
+
+    Vec3 s = vec3_cross(f, up);
+    s = vec3_normalize(s);  // Вектор вправо (side)
+
+    Vec3 u = vec3_cross(s, f);  // Пересчитанный вектор вверх (up)
+
+    Mat4 view = {0};
+    view.m[0][0] = s.x;
+    view.m[1][0] = s.y;
+    view.m[2][0] = s.z;
+
+    view.m[0][1] = u.x;
+    view.m[1][1] = u.y;
+    view.m[2][1] = u.z;
+
+    view.m[0][2] = -f.x;
+    view.m[1][2] = -f.y;
+    view.m[2][2] = -f.z;
+
+    view.m[3][3] = 1.0f;
+
+    view.m[0][3] = -vec3_dot(s, pos);
+    view.m[1][3] = -vec3_dot(u, pos);
+    view.m[2][3] = vec3_dot(f, pos);
+
+    return view;
+}
+
+Vec2 project_point(Vec3 v, Mat4 proj, Mat4 view, int w, int h) {
 	Vec4 v4 = {v.x, v.y, v.z, 1.0f};
-    Vec4 projected = mat4_mul_vec4(proj, v4);
+    Vec4 view_space = mat4_mul_vec4(view, v4);
+    Vec4 projected = mat4_mul_vec4(proj, view_space);
 
     if (projected.w == 0) projected.w = 0.0001f; // защита от деления на 0
 
@@ -77,26 +110,6 @@ Vec3 triangle_normal(Vec3 a, Vec3 b, Vec3 c) {
     return (Vec3){normal.x / length, normal.y / length, normal.z / length};
 }
 
-// float angle_camera_and_normal(Vec3 camera_pos, Vec3 triangle_point, Vec3 normal) {
-//     Vec3 to_camera = vec3_sub(camera_pos, triangle_point);
-
-//     float length = vec3_length(to_camera);
-
-//     Vec3 dir = {0.0f, 0.0f, 0.0f};
-
-//     if (length != 0.0f) {
-//         dir.x = to_camera.x / length;
-//         dir.y = to_camera.y / length;
-//         dir.z = to_camera.z / length;
-//     }
-
-//     float cos_angle = vec3_dot(normal, dir);
-//     if (cos_angle > 1.0f) cos_angle = 1.0f;
-//     if (cos_angle < -1.0f) cos_angle = -1.0f;
-
-//     return acosf(cos_angle);
-// }
-
 Vec3 rotate_point(Vec3 v, float angleX, float angleY) {
 	float cosX = cos(angleX);
     float sinX = sin(angleX);
@@ -120,15 +133,15 @@ int (*E3DGetFaces(void))[3] {
 }
 
 int E3DAddVertex(Vec3 vertex) {
-    v = realloc(v, v_size * sizeof(Vec3));
+    v = realloc(v, (v_size + 1) * sizeof(Vec3));
     if (!v) {
         fprintf(stderr, "Memory re-allocated failed\n");
         return -1;
     }
 
-    v[v_size - 1] = vertex;
+    v[v_size] = vertex;
     v_size++;
-    return v_size - 2;
+    return v_size - 1;
 }
 
 void E3DDelVertex(unsigned int v_id) {
@@ -144,17 +157,17 @@ void E3DDelVertex(unsigned int v_id) {
 }
 
 int E3DAddFace(int face[3]) {
-    f = realloc(f, f_size * sizeof(int[3]));
+    f = realloc(f, (f_size + 1) * sizeof(int[3]));
     if (!f) {
         fprintf(stderr, "Memory re-allocated failed\n");
         return -1;
     }
 
-    f[f_size - 1][0] = face[0];
-    f[f_size - 1][1] = face[1];
-    f[f_size - 1][2] = face[2];
+    f[f_size][0] = face[0];
+    f[f_size][1] = face[1];
+    f[f_size][2] = face[2];
     f_size++;
-    return f_size - 2;
+    return f_size - 1;
 }
 
 void E3DDelFace(unsigned int f_id) {
@@ -197,24 +210,14 @@ int E3DAddBox(Vec3 pos, Vec3 size) {
     return 1;
 }
 
-int E3DInit(void) {
+int E3DInit(Camera *cam) {
 	initscr();
 	noecho();
 	curs_set(0);
 
 	getmaxyx(stdscr, screen_h, screen_w);
 
-    v = malloc(v_size + sizeof(Vec3));
-    if (!v) {
-        fprintf(stderr, "Memory allocated failed\n");
-        return 0;
-    }
-
-    f = malloc(f_size + sizeof(int[3]));
-    if (!f) {
-        fprintf(stderr, "Memory allocated failed\n");
-        return 0;
-    }
+    camera = cam;
 
     return 1;
 }
@@ -240,8 +243,9 @@ void E3DProcess(void) {
         Vec2 *projected = malloc(v_size * sizeof(Vec2));
         float aspect = ((float)screen_w / screen_h) * terminal_aspect_correction;
         Mat4 proj = perspective(90.0f, aspect, 0.1f, 100.0f);
+        Mat4 view = look_at(camera->pos, camera->target, camera->up);
 
-        Vec3 center = {0, 0, -3};
+        Vec3 center = {0, 0, 0};
 
         // Rotate around center
         for (int i = 0; i < v_size; i++) {
@@ -252,7 +256,7 @@ void E3DProcess(void) {
 
         // Project
         for (int i = 0; i < v_size; i++) {
-            projected[i] = project_point(rotated[i], proj, screen_w, screen_h);
+            projected[i] = project_point(rotated[i], proj, view, screen_w, screen_h);
         }
 
         // Draw faces
@@ -262,15 +266,27 @@ void E3DProcess(void) {
             Vec2 v1 = projected[t[1]];
             Vec2 v2 = projected[t[2]];
 
-            Vec3 normal = triangle_normal(rotated[t[0]], rotated[t[1]], rotated[t[2]]);
-            Vec3 to_camera = vec3_sub((Vec3){0.0f, 0.0f, 0.0f}, rotated[t[0]]);
-            float dot = vec3_dot(normal, to_camera);
+            // Переводим вершины треугольника в view space
+            // Vec4 v0_view4 = mat4_mul_vec4(view, (Vec4){rotated[t[0]].x, rotated[t[0]].y, rotated[t[0]].z, 1.0f});
+            // Vec4 v1_view4 = mat4_mul_vec4(view, (Vec4){rotated[t[1]].x, rotated[t[1]].y, rotated[t[1]].z, 1.0f});
+            // Vec4 v2_view4 = mat4_mul_vec4(view, (Vec4){rotated[t[2]].x, rotated[t[2]].y, rotated[t[2]].z, 1.0f});
 
-            if (dot < 0.0f) {
-                draw_line(v0, v1);
-                draw_line(v1, v2);
-                draw_line(v2, v0);
-            }
+            // Переводим в Vec3
+            // Vec3 v0_view = {v0_view4.x, v0_view4.y, v0_view4.z};
+            // Vec3 v1_view = {v1_view4.x, v1_view4.y, v1_view4.z};
+            // Vec3 v2_view = {v2_view4.x, v2_view4.y, v2_view4.z};
+
+            // Vec3 normal = triangle_normal(v0_view, v1_view, v2_view);
+
+            // if (normal.z < 0.0f) {
+            //     draw_line(v0, v1);
+            //     draw_line(v1, v2);
+            //     draw_line(v2, v0);
+            // }
+
+            draw_line(v0, v1);
+            draw_line(v1, v2);
+            draw_line(v2, v0);
         }
 
         free(projected);
@@ -279,7 +295,7 @@ void E3DProcess(void) {
         refresh();
         usleep(30000);
 
-        angleX += 0.07f;
-        angleY += 0.07f;
+        angleX += 0.05f;
+        angleY += 0.05f;
     }
 }
