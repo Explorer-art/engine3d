@@ -10,6 +10,7 @@ typedef struct {
 } Camera;
 
 typedef struct {
+	unsigned int id;
 	Vec3 pos;
 	Vec3 size;
 	Vec3 angle;
@@ -19,6 +20,7 @@ typedef struct {
 	unsigned int *v_ids;
 	int (*f)[3];
 	unsigned int *f_ids;
+	unsigned int enable;
 } Object3D;
 
 int E3DInit(Camera *cam);
@@ -30,8 +32,9 @@ unsigned int E3DAddVertex(Vec3 vertex);
 void E3DDelVertex(unsigned int v_id);
 unsigned int E3DAddFace(int face[3]);
 void E3DDelFace(unsigned int f_id);
-Object3D* E3DNewBox(Vec3 pos, Vec3 size);
+Object3D* E3DNewBox(Vec3 pos, Vec3 size, Vec3 angle);
 void E3DAddObject3D(Object3D *object);
 void E3DDelObject3D(Object3D *obj);
+void E3DUpdateObject3D(Object3D *obj);
 
 #endif

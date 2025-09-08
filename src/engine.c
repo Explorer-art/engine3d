@@ -11,9 +11,9 @@ static int screen_h = 0;
 static int screen_w = 0;
 static unsigned int v_size = 0;
 static unsigned int f_size = 0;
-static float angleX = 0;
-static float angleY = 0;
 static Camera *camera = NULL;
+static unsigned int objects_count = 0;
+static Object3D **objects = NULL;
 
 Vec3 *v = NULL;
 
@@ -184,10 +184,11 @@ void E3DDelFace(unsigned int f_id) {
     }
 }
 
-Object3D* E3DNewBox(Vec3 pos, Vec3 size) {
+Object3D* E3DNewBox(Vec3 pos, Vec3 size, Vec3 angle) {
     Object3D *box = malloc(sizeof(Object3D));
     box->pos = pos;
     box->size = size;
+    box->angle = angle;
 
     Vec3 *v = malloc(8 * sizeof(Vec3));
     if (!v) {
@@ -230,6 +231,16 @@ Object3D* E3DNewBox(Vec3 pos, Vec3 size) {
     box->f = f;
     box->f_size = 12;
 
+    objects = realloc(objects, (objects_count + 1) * sizeof(Object3D));
+    if (!objects) {
+        fprintf(stderr, "Memory re-allocated failed\n");
+        return NULL;
+    }
+
+    objects[objects_count] = box;
+    box->id = objects_count;
+    objects_count++;
+
     return box;
 }
 
@@ -260,6 +271,18 @@ void E3DAddObject3D(Object3D *obj) {
 }
 
 void E3DDelObject3D(Object3D *obj) {
+    for (unsigned int i = obj->id; i < objects_count - 1; i++) {
+        objects[i] = objects[i + 1];
+    }
+
+    objects_count--;
+    objects = realloc(objects, (objects_count + 1) * sizeof(Object3D));
+
+    if (!objects) {
+        fprintf(stderr, "Memory re-allocated failed\n");
+        return;
+    }
+
     for (unsigned int i = 0; i < obj->v_size; i++) {
         E3DDelVertex(obj->v_ids[i]);
     }
@@ -300,21 +323,42 @@ void E3DEnd(void) {
     endwin();
 }
 
-// Rotate around center
-// for (int i = 0; i < v_size; i++) {
-//     Vec3 local = vec3_sub(v[i], center);
-//     Vec3 rotated_local = rotate_point(local, angleX, angleY);
-//     rotated[i] = vec3_add(rotated_local, center);
-// }
+void E3DUpdateObject3D(Object3D *obj) {
+    for (unsigned int i = 0; i < obj->v_size; i++) {
+        Vec3 local = vec3_sub(v[obj->v_ids[i]], obj->pos);
+        Vec3 rotated_local = rotate_point(local, obj->angle.x, obj->angle.y);
+        v[i] = vec3_add(rotated_local, obj->pos);
+    }
+}
 
 void E3DUpdate(void) {
-    Vec2 *projected = malloc(v_size * sizeof(Vec2));
     float aspect = ((float)screen_w / screen_h) * terminal_aspect_correction;
     Mat4 proj = perspective(90.0f, aspect, 0.1f, 100.0f);
     Mat4 view = look_at(camera->pos, camera->target, camera->up);
 
+    Vec3 *rotated = malloc(v_size * sizeof(Vec3));
+    if (!rotated) {
+        fprintf(stderr, "Memory allocated failed\n");
+        return;
+    }
+
+    Vec2 *projected = malloc(v_size * sizeof(Vec2));
+    if (!projected) {
+        fprintf(stderr, "Memory allocated failed\n");
+        return;
+    }
+
+    for (unsigned int i = 0; i < objects_count; i++) {
+        for (unsigned int j = 0; j < objects[i]->v_size; j++) {
+            Vec3 local = vec3_sub(v[objects[i]->v_ids[j]], objects[i]->pos);
+            Vec3 rotated_local = rotate_point(local, objects[i]->angle.x, objects[i]->angle.y);
+            rotated[j] = vec3_add(rotated_local, objects[i]->pos);
+        }
+    }
+
+    // Project
     for (int i = 0; i < v_size; i++) {
-        projected[i] = project_point(v[i], proj, view, screen_w, screen_h);
+        projected[i] = project_point(rotated[i], proj, view, screen_w, screen_h);
     }
 
     #ifdef DEBUG
@@ -359,5 +403,6 @@ void E3DUpdate(void) {
         draw_line(v2, v0);
     }
 
+    free(rotated);
     free(projected);
 }

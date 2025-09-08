@@ -14,7 +14,7 @@ int main() {
         return 1;
     }
 
-    Object3D *cube = E3DNewBox((Vec3){0, 0, 0}, (Vec3){2, 2, 2});
+    Object3D *cube = E3DNewBox((Vec3){0, 0, 0}, (Vec3){2, 2, 2}, (Vec3){0.0f, 0.0f, 0.0f});
     E3DAddObject3D(cube);
 
     while (1) {
@@ -24,6 +24,9 @@ int main() {
 
         refresh();
         usleep(30000); // ~30 FPS
+
+        cube->angle.x += 0.05f;
+        cube->angle.y += 0.05f;
     }
     
     E3DDelObject3D(cube);
