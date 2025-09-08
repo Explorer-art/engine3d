@@ -189,6 +189,7 @@ Object3D* E3DNewBox(Vec3 pos, Vec3 size, Vec3 angle) {
     box->pos = pos;
     box->size = size;
     box->angle = angle;
+    box->enable = 0;
 
     Vec3 *v = malloc(8 * sizeof(Vec3));
     if (!v) {
@@ -268,6 +269,7 @@ void E3DAddObject3D(Object3D *obj) {
     }
 
     obj->f_ids = f_ids;
+    obj->enable = 1;
 }
 
 void E3DDelObject3D(Object3D *obj) {
@@ -349,10 +351,12 @@ void E3DUpdate(void) {
     }
 
     for (unsigned int i = 0; i < objects_count; i++) {
-        for (unsigned int j = 0; j < objects[i]->v_size; j++) {
-            Vec3 local = vec3_sub(v[objects[i]->v_ids[j]], objects[i]->pos);
-            Vec3 rotated_local = rotate_point(local, objects[i]->angle.x, objects[i]->angle.y);
-            rotated[j] = vec3_add(rotated_local, objects[i]->pos);
+        if (objects[i]->enable == 1) {
+            for (unsigned int j = 0; j < objects[i]->v_size; j++) {
+                Vec3 local = vec3_sub(v[objects[i]->v_ids[j]], objects[i]->pos);
+                Vec3 rotated_local = rotate_point(local, objects[i]->angle.x, objects[i]->angle.y);
+                rotated[j] = vec3_add(rotated_local, objects[i]->pos);
+            }
         }
     }
 
