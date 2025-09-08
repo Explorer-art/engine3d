@@ -9,8 +9,8 @@
 float terminal_aspect_correction = 0.5f;
 static int screen_h = 0;
 static int screen_w = 0;
-static int v_size = 0;
-static int f_size = 0;
+static unsigned int v_size = 0;
+static unsigned int f_size = 0;
 static float angleX = 0;
 static float angleY = 0;
 static Camera *camera = NULL;
@@ -77,7 +77,7 @@ Mat4 look_at(Vec3 pos, Vec3 target, Vec3 up) {
 }
 
 Vec2 project_point(Vec3 v, Mat4 proj, Mat4 view, int w, int h) {
-	Vec4 v4 = {v.x, v.y, v.z, 1.0f};
+    Vec4 v4 = {v.x, v.y, v.z, 1.0f};
     Vec4 view_space = mat4_mul_vec4(view, v4);
     Vec4 projected = mat4_mul_vec4(proj, view_space);
 
@@ -91,7 +91,7 @@ Vec2 project_point(Vec3 v, Mat4 proj, Mat4 view, int w, int h) {
     // Теперь x, y, z ∈ [-1, 1]
     // Перевод в координаты экрана
     int sx = (projected.x + 1.0f) * 0.5f * screen_w;
-	int sy = (1.0f - projected.y) * 0.5f * screen_h;
+    int sy = (1.0f - projected.y) * 0.5f * screen_h;
 
     return (Vec2){sx, sy};
 }
@@ -111,7 +111,7 @@ Vec3 triangle_normal(Vec3 a, Vec3 b, Vec3 c) {
 }
 
 Vec3 rotate_point(Vec3 v, float angleX, float angleY) {
-	float cosX = cos(angleX);
+    float cosX = cos(angleX);
     float sinX = sin(angleX);
     float y1 = v.y * cosX - v.z * sinX;
     float z1 = v.y * sinX + v.z * cosX;
@@ -132,7 +132,7 @@ int (*E3DGetFaces(void))[3] {
     return f;
 }
 
-int E3DAddVertex(Vec3 vertex) {
+unsigned int E3DAddVertex(Vec3 vertex) {
     v = realloc(v, (v_size + 1) * sizeof(Vec3));
     if (!v) {
         fprintf(stderr, "Memory re-allocated failed\n");
@@ -156,7 +156,7 @@ void E3DDelVertex(unsigned int v_id) {
     }
 }
 
-int E3DAddFace(int face[3]) {
+unsigned int E3DAddFace(int face[3]) {
     f = realloc(f, (f_size + 1) * sizeof(int[3]));
     if (!f) {
         fprintf(stderr, "Memory re-allocated failed\n");
@@ -184,38 +184,103 @@ void E3DDelFace(unsigned int f_id) {
     }
 }
 
-int E3DAddBox(Vec3 pos, Vec3 size) {
-    int v0 = E3DAddVertex((Vec3){pos.x - (size.x / 2), pos.y - (size.y / 2), pos.z - (size.z / 2)});
-    int v1 = E3DAddVertex((Vec3){pos.x + (size.x / 2), pos.y - (size.y / 2), pos.z - (size.z / 2)});
-    int v2 = E3DAddVertex((Vec3){pos.x + (size.x / 2), pos.y + (size.y / 2), pos.z - (size.z / 2)});
-    int v3 = E3DAddVertex((Vec3){pos.x - (size.x / 2), pos.y + (size.y / 2), pos.z - (size.z / 2)});
-    int v4 = E3DAddVertex((Vec3){pos.x - (size.x / 2), pos.y - (size.y / 2), pos.z + (size.z / 2)});
-    int v5 = E3DAddVertex((Vec3){pos.x + (size.x / 2), pos.y - (size.y / 2), pos.z + (size.z / 2)});
-    int v6 = E3DAddVertex((Vec3){pos.x + (size.x / 2), pos.y + (size.y / 2), pos.z + (size.z / 2)});
-    int v7 = E3DAddVertex((Vec3){pos.x - (size.x / 2), pos.y + (size.y / 2), pos.z + (size.z / 2)});
+Object3D* E3DNewBox(Vec3 pos, Vec3 size) {
+    Object3D *box = malloc(sizeof(Object3D));
+    box->pos = pos;
+    box->size = size;
 
-    E3DAddFace((int[3]){v0, v1, v2});
-    E3DAddFace((int[3]){v0, v2, v3});
-    E3DAddFace((int[3]){v1, v5, v6});
-    E3DAddFace((int[3]){v1, v6, v2});
-    E3DAddFace((int[3]){v5, v4, v7});
-    E3DAddFace((int[3]){v5, v7, v6});
-    E3DAddFace((int[3]){v4, v0, v3});
-    E3DAddFace((int[3]){v4, v3, v7});
-    E3DAddFace((int[3]){v3, v2, v6});
-    E3DAddFace((int[3]){v3, v6, v7});
-    E3DAddFace((int[3]){v4, v5, v1});
-    E3DAddFace((int[3]){v4, v1, v0});
+    Vec3 *v = malloc(8 * sizeof(Vec3));
+    if (!v) {
+        fprintf(stderr, "Memory allocated failed\n");
+        return NULL;
+    }
 
-    return 1;
+    v[0] = (Vec3){pos.x - (size.x / 2), pos.y - (size.y / 2), pos.z - (size.z / 2)};
+    v[1] = (Vec3){pos.x + (size.x / 2), pos.y - (size.y / 2), pos.z - (size.z / 2)};
+    v[2] = (Vec3){pos.x + (size.x / 2), pos.y + (size.y / 2), pos.z - (size.z / 2)};
+    v[3] = (Vec3){pos.x - (size.x / 2), pos.y + (size.y / 2), pos.z - (size.z / 2)};
+    v[4] = (Vec3){pos.x - (size.x / 2), pos.y - (size.y / 2), pos.z + (size.z / 2)};
+    v[5] = (Vec3){pos.x + (size.x / 2), pos.y - (size.y / 2), pos.z + (size.z / 2)};
+    v[6] = (Vec3){pos.x + (size.x / 2), pos.y + (size.y / 2), pos.z + (size.z / 2)};
+    v[7] = (Vec3){pos.x - (size.x / 2), pos.y + (size.y / 2), pos.z + (size.z / 2)};
+
+    box->v = v;
+    box->v_size = 8;
+
+    int (*f)[3] = malloc(12 * sizeof(int[3]));
+    if (!f) {
+        free(v);
+        fprintf(stderr, "Memory allocated failed\n");
+        return NULL;
+    }
+
+    f[0][0] = 0; f[0][1] = 1; f[0][2] = 2;
+    f[1][0] = 0; f[1][1] = 2; f[1][2] = 3;
+    f[2][0] = 1; f[2][1] = 5; f[2][2] = 6;
+    f[3][0] = 1; f[3][1] = 6; f[3][2] = 2;
+    f[4][0] = 5; f[4][1] = 4; f[4][2] = 7;
+    f[5][0] = 5; f[5][1] = 7; f[5][2] = 6;
+    f[6][0] = 4; f[6][1] = 0; f[6][2] = 3;
+    f[7][0] = 4; f[7][1] = 3; f[7][2] = 7;
+    f[8][0] = 3; f[8][1] = 2; f[8][2] = 6;
+    f[9][0] = 3; f[9][1] = 6; f[9][2] = 7;
+    f[10][0] = 4; f[10][1] = 5; f[10][2] = 1;
+    f[11][0] = 4; f[11][1] = 1; f[11][2] = 0;
+
+    box->f = f;
+    box->f_size = 12;
+
+    return box;
+}
+
+void E3DAddObject3D(Object3D *obj) {
+    unsigned int *v_ids = malloc(obj->v_size * sizeof(unsigned int));
+    if (!v_ids) {
+        fprintf(stderr, "Memory allocated failed\n");
+        return;
+    }
+
+    for (unsigned int i = 0; i < obj->v_size; i++) {
+        v_ids[i] = E3DAddVertex(obj->v[i]);
+    }
+
+    obj->v_ids = v_ids;
+
+    unsigned int *f_ids = malloc(obj->f_size * sizeof(unsigned int));
+    if (!f_ids) {
+        fprintf(stderr, "Memory allocated failed\n");
+        return;
+    }
+
+    for (unsigned int i = 0; i < obj->f_size; i++) {
+        f_ids[i] = E3DAddFace((int[3]){v_ids[obj->f[i][0]], v_ids[obj->f[i][1]], v_ids[obj->f[i][2]]});
+    }
+
+    obj->f_ids = f_ids;
+}
+
+void E3DDelObject3D(Object3D *obj) {
+    for (unsigned int i = 0; i < obj->v_size; i++) {
+        E3DDelVertex(obj->v_ids[i]);
+    }
+
+    free(obj->v_ids);
+
+    for (unsigned int i = 0; i < obj->f_size; i++) {
+        E3DDelFace(obj->f_ids[i]);
+    }
+
+    free(obj->f_ids);
+    free(obj->v);
+    free(obj->f);
 }
 
 int E3DInit(Camera *cam) {
-	initscr();
-	noecho();
-	curs_set(0);
+    initscr();
+    noecho();
+    curs_set(0);
 
-	getmaxyx(stdscr, screen_h, screen_w);
+    getmaxyx(stdscr, screen_h, screen_w);
 
     camera = cam;
 
@@ -232,70 +297,67 @@ void E3DEnd(void) {
         free(f);
         f = NULL;
     }
-	endwin();
+    endwin();
 }
 
-void E3DProcess(void) {
-    while (1) {
-        clear();
+// Rotate around center
+// for (int i = 0; i < v_size; i++) {
+//     Vec3 local = vec3_sub(v[i], center);
+//     Vec3 rotated_local = rotate_point(local, angleX, angleY);
+//     rotated[i] = vec3_add(rotated_local, center);
+// }
 
-        Vec3 *rotated = malloc(v_size * sizeof(Vec3));
-        Vec2 *projected = malloc(v_size * sizeof(Vec2));
-        float aspect = ((float)screen_w / screen_h) * terminal_aspect_correction;
-        Mat4 proj = perspective(90.0f, aspect, 0.1f, 100.0f);
-        Mat4 view = look_at(camera->pos, camera->target, camera->up);
+void E3DUpdate(void) {
+    Vec2 *projected = malloc(v_size * sizeof(Vec2));
+    float aspect = ((float)screen_w / screen_h) * terminal_aspect_correction;
+    Mat4 proj = perspective(90.0f, aspect, 0.1f, 100.0f);
+    Mat4 view = look_at(camera->pos, camera->target, camera->up);
 
-        Vec3 center = {0, 0, 0};
-
-        // Rotate around center
-        for (int i = 0; i < v_size; i++) {
-            Vec3 local = vec3_sub(v[i], center);
-            Vec3 rotated_local = rotate_point(local, angleX, angleY);
-            rotated[i] = vec3_add(rotated_local, center);
-        }
-
-        // Project
-        for (int i = 0; i < v_size; i++) {
-            projected[i] = project_point(rotated[i], proj, view, screen_w, screen_h);
-        }
-
-        // Draw faces
-        for (int i = 0; i < f_size; i++) {
-            int *t = f[i];
-            Vec2 v0 = projected[t[0]];
-            Vec2 v1 = projected[t[1]];
-            Vec2 v2 = projected[t[2]];
-
-            // Переводим вершины треугольника в view space
-            // Vec4 v0_view4 = mat4_mul_vec4(view, (Vec4){rotated[t[0]].x, rotated[t[0]].y, rotated[t[0]].z, 1.0f});
-            // Vec4 v1_view4 = mat4_mul_vec4(view, (Vec4){rotated[t[1]].x, rotated[t[1]].y, rotated[t[1]].z, 1.0f});
-            // Vec4 v2_view4 = mat4_mul_vec4(view, (Vec4){rotated[t[2]].x, rotated[t[2]].y, rotated[t[2]].z, 1.0f});
-
-            // Переводим в Vec3
-            // Vec3 v0_view = {v0_view4.x, v0_view4.y, v0_view4.z};
-            // Vec3 v1_view = {v1_view4.x, v1_view4.y, v1_view4.z};
-            // Vec3 v2_view = {v2_view4.x, v2_view4.y, v2_view4.z};
-
-            // Vec3 normal = triangle_normal(v0_view, v1_view, v2_view);
-
-            // if (normal.z < 0.0f) {
-            //     draw_line(v0, v1);
-            //     draw_line(v1, v2);
-            //     draw_line(v2, v0);
-            // }
-
-            draw_line(v0, v1);
-            draw_line(v1, v2);
-            draw_line(v2, v0);
-        }
-
-        free(projected);
-        free(rotated);
-
-        refresh();
-        usleep(30000);
-
-        angleX += 0.05f;
-        angleY += 0.05f;
+    for (int i = 0; i < v_size; i++) {
+        projected[i] = project_point(v[i], proj, view, screen_w, screen_h);
     }
+
+    #ifdef DEBUG
+    mvprintw(0, 0, "Vertexes size: %d", v_size);
+    mvprintw(1, 0, "Faces size: %d", f_size);
+
+    for (int i = 0; i < v_size; i++) {
+        mvprintw(3 + i, 0, "Vec3 (%f, %f, %f)", v[i].x, v[i].y, v[i].z);
+    }
+
+    for (int i = 0; i < f_size; i++) {
+        mvprintw(15 + i, 0, "%d, %d, %d", f[i][0], f[i][1], f[i][2]);
+    }
+    #endif
+
+    for (int i = 0; i < f_size; i++) {
+        int *t = f[i];
+        Vec2 v0 = projected[t[0]];
+        Vec2 v1 = projected[t[1]];
+        Vec2 v2 = projected[t[2]];
+
+        // Переводим вершины треугольника в view space
+        // Vec4 v0_view4 = mat4_mul_vec4(view, (Vec4){rotated[t[0]].x, rotated[t[0]].y, rotated[t[0]].z, 1.0f});
+        // Vec4 v1_view4 = mat4_mul_vec4(view, (Vec4){rotated[t[1]].x, rotated[t[1]].y, rotated[t[1]].z, 1.0f});
+        // Vec4 v2_view4 = mat4_mul_vec4(view, (Vec4){rotated[t[2]].x, rotated[t[2]].y, rotated[t[2]].z, 1.0f});
+
+        // Переводим в Vec3
+        // Vec3 v0_view = {v0_view4.x, v0_view4.y, v0_view4.z};
+        // Vec3 v1_view = {v1_view4.x, v1_view4.y, v1_view4.z};
+        // Vec3 v2_view = {v2_view4.x, v2_view4.y, v2_view4.z};
+
+        // Vec3 normal = triangle_normal(v0_view, v1_view, v2_view);
+
+        // if (normal.z < 0.0f) {
+        //     draw_line(v0, v1);
+        //     draw_line(v1, v2);
+        //     draw_line(v2, v0);
+        // }
+
+        draw_line(v0, v1);
+        draw_line(v1, v2);
+        draw_line(v2, v0);
+    }
+
+    free(projected);
 }

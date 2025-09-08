@@ -1,5 +1,6 @@
+#include <ncurses.h>
+#include <unistd.h>
 #include "engine.h"
-#include "vector.h"
 
 int main() {
     Camera camera = {
@@ -13,9 +14,19 @@ int main() {
         return 1;
     }
 
-    E3DAddBox((Vec3){0, 0, 0}, (Vec3){2, 2, 2});
+    Object3D *cube = E3DNewBox((Vec3){0, 0, 0}, (Vec3){2, 2, 2});
+    E3DAddObject3D(cube);
 
-    E3DProcess();
+    while (1) {
+        clear();
+
+        E3DUpdate();
+
+        refresh();
+        usleep(30000); // ~30 FPS
+    }
+    
+    E3DDelObject3D(cube);
     E3DEnd();
     
     return 0;
