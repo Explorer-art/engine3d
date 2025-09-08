@@ -353,9 +353,11 @@ void E3DUpdate(void) {
     for (unsigned int i = 0; i < objects_count; i++) {
         if (objects[i]->enable == 1) {
             for (unsigned int j = 0; j < objects[i]->v_size; j++) {
-                Vec3 local = vec3_sub(v[objects[i]->v_ids[j]], objects[i]->pos);
+                unsigned int global_v_id = objects[i]->v_ids[j];
+                
+                Vec3 local = vec3_sub(v[global_v_id], objects[i]->pos);
                 Vec3 rotated_local = rotate_point(local, objects[i]->angle.x, objects[i]->angle.y);
-                rotated[j] = vec3_add(rotated_local, objects[i]->pos);
+                rotated[global_v_id] = vec3_add(rotated_local, objects[i]->pos);
             }
         }
     }
