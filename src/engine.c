@@ -382,31 +382,36 @@ void E3DUpdate(void) {
 
     for (int i = 0; i < f_size; i++) {
         int *t = f[i];
-        Vec2 v0 = projected[t[0]];
-        Vec2 v1 = projected[t[1]];
-        Vec2 v2 = projected[t[2]];
 
         // Переводим вершины треугольника в view space
-        // Vec4 v0_view4 = mat4_mul_vec4(view, (Vec4){rotated[t[0]].x, rotated[t[0]].y, rotated[t[0]].z, 1.0f});
-        // Vec4 v1_view4 = mat4_mul_vec4(view, (Vec4){rotated[t[1]].x, rotated[t[1]].y, rotated[t[1]].z, 1.0f});
-        // Vec4 v2_view4 = mat4_mul_vec4(view, (Vec4){rotated[t[2]].x, rotated[t[2]].y, rotated[t[2]].z, 1.0f});
+        Vec4 v0_view4 = mat4_mul_vec4(view, (Vec4){rotated[t[0]].x, rotated[t[0]].y, rotated[t[0]].z, 1.0f});
+        Vec4 v1_view4 = mat4_mul_vec4(view, (Vec4){rotated[t[1]].x, rotated[t[1]].y, rotated[t[1]].z, 1.0f});
+        Vec4 v2_view4 = mat4_mul_vec4(view, (Vec4){rotated[t[2]].x, rotated[t[2]].y, rotated[t[2]].z, 1.0f});
 
         // Переводим в Vec3
-        // Vec3 v0_view = {v0_view4.x, v0_view4.y, v0_view4.z};
-        // Vec3 v1_view = {v1_view4.x, v1_view4.y, v1_view4.z};
-        // Vec3 v2_view = {v2_view4.x, v2_view4.y, v2_view4.z};
+        Vec3 v0_view = {v0_view4.x, v0_view4.y, v0_view4.z};
+        Vec3 v1_view = {v1_view4.x, v1_view4.y, v1_view4.z};
+        Vec3 v2_view = {v2_view4.x, v2_view4.y, v2_view4.z};
 
-        // Vec3 normal = triangle_normal(v0_view, v1_view, v2_view);
+        Vec3 center = vec3_div(vec3_add(vec3_add(v0_view, v1_view), v2_view), 3.0f);
+        Vec3 normal = triangle_normal(v0_view, v1_view, v2_view);
+        Vec3 view_dir = vec3_normalize(vec3_neg(center));
 
-        // if (normal.z < 0.0f) {
-        //     draw_line(v0, v1);
-        //     draw_line(v1, v2);
-        //     draw_line(v2, v0);
-        // }
+        float dp = vec3_dot(normal, view_dir);
 
-        draw_line(v0, v1);
-        draw_line(v1, v2);
-        draw_line(v2, v0);
+        if (dp < 0.0f) {
+            Vec2 v0 = projected[t[0]];
+            Vec2 v1 = projected[t[1]];
+            Vec2 v2 = projected[t[2]];
+
+            draw_line(v0, v1);
+            draw_line(v1, v2);
+            draw_line(v2, v0);
+        }
+
+        // draw_line(v0, v1);
+        // draw_line(v1, v2);
+        // draw_line(v2, v0);
     }
 
     free(rotated);

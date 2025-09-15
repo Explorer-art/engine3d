@@ -25,8 +25,8 @@ int main() {
         refresh();
         usleep(30000); // ~30 FPS
 
-        cube->angle.x += 0.05f;
-        cube->angle.y += 0.05f;
+        // cube->angle.x += 0.05f;
+        cube->angle.y += 0.01f;
     }
     
     E3DDelObject3D(cube);
